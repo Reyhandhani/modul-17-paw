@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
 use App\Models\Employee;
 use App\Models\Position;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class EmployeeController extends Controller
 {
@@ -62,6 +64,17 @@ class EmployeeController extends Controller
             return redirect()->back()->withErrors($validator)->withInput();
         }
 
+        // Get File
+        $file = $request->file('cv');
+
+        if ($file != null) {
+            $originalFilename = $file->getClientOriginalName();
+            $encryptedFilename = $file->hashName();
+
+            // Store File
+            $file->store('public/files');
+        }
+
         // ELOQUENT
         $employee = new Employee;
         $employee->firstname = $request->firstName;
@@ -69,6 +82,10 @@ class EmployeeController extends Controller
         $employee->email = $request->email;
         $employee->age = $request->age;
         $employee->position_id = $request->position;
+        if ($file != null) {
+            $employee->original_filename = $originalFilename;
+            $employee->encrypted_filename = $encryptedFilename;
+        }
         $employee->save();
 
         return redirect()->route('employees.index');
@@ -130,6 +147,21 @@ class EmployeeController extends Controller
         $employee->email = $request->email;
         $employee->age = $request->age;
         $employee->position_id = $request->position;
+        $file = $request->file('cv');
+        if ($file) {
+            if ($employee->encrypted_filename) {
+                $oldFile = 'public/files/' . $employee->encrypted_filename;
+                if (Storage::exists($oldFile)) {
+                    Storage::delete($oldFile);
+                }
+            }
+            $originalFilename = $file->getClientOriginalName();
+            $encryptedFilename = $file->hashName();
+            $file->store('public/files');
+            $employee->original_filename = $originalFilename;
+            $employee->encrypted_filename = $encryptedFilename;
+        }
+
         $employee->save();
 
         return redirect()->route('employees.index');
@@ -140,9 +172,30 @@ class EmployeeController extends Controller
      */
     public function destroy(string $id)
     {
+        $employee = Employee::findOrFail($id);
+
+
+        if ($employee->encrypted_filename) {
+            $filePath = 'public/files/' . $employee->encrypted_filename;
+            if (Storage::exists($filePath)) {
+                Storage::delete($filePath);
+            }
+        }
+
         // ELOQUENT
         Employee::find($id)->delete();
 
         return redirect()->route('employees.index');
+    }
+
+    public function downloadFile($employeeId)
+    {
+        $employee = Employee::find($employeeId);
+        $encryptedFilename = 'public/files/' . $employee->encrypted_filename;
+        $downloadFilename = Str::lower($employee->firstname . '_' . $employee->lastname . '_cv.pdf');
+
+        if (Storage::exists($encryptedFilename)) {
+            return Storage::download($encryptedFilename, $downloadFilename);
+        }
     }
 }
