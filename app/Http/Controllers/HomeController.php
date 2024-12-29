@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Charts\EmployeesChart;
 use Illuminate\Http\Request;
 
 class HomeController extends Controller
@@ -21,10 +22,13 @@ class HomeController extends Controller
      *
      * @return \Illuminate\Contracts\Support\Renderable
      */
-    function index()
+    public function index(EmployeesChart $chart)
     {
-        $pageTitle = 'Home';
-
-        return view('home', ['pageTitle' => $pageTitle]);
+         $pageTitle = 'Home';
+         return view('home',[
+                'pageTitle' => $pageTitle,
+                'chart' => $chart->build()
+         ]);
     }
+
 }
